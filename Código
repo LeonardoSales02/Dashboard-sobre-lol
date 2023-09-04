@@ -1,0 +1,73 @@
+
+import csv
+import pandas as pd
+from dash import Dash, html, dcc, Input, Output
+import plotly.express as px
+import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import seaborn as sns 
+
+df = pd.read_csv("lolprojeto.csv", sep=",")
+app = Dash(__name__)
+
+colors = {
+    'background': '#1E1E1E',  # Fundo escuro
+    'text': '#FFFFFF',  # Texto branco
+    'header': '#BB86FC',  # Roxo claro
+    'dropdown': '#4D4D4D',  # Cinza escuro
+    'chart': '#272727',  # Fundo do gráfico
+}
+
+# O site
+app.layout = html.Div(style={'backgroundColor': colors['background']}, children=[
+    html.H1('League of Legends Dashboard', style={'color': colors['header']}),
+    # Seleção de gráfico interativo
+    html.Label('Selecione um gráfico:', style={'color': colors['text']}),
+    dcc.Dropdown(
+        id='chart-selector',
+        options=[
+            {'label': 'Relação entre Blue Kills e Blue Total Gold', 'value': 'scatter'},
+            {'label': 'Distribuição de Vitórias e Derrotas', 'value': 'pie'},
+            {'label': 'Vitórias vs. First Blood', 'value': 'countplot'},
+            {'label': 'Histograma de Elite Monsters vs. Vitórias', 'value': 'elite_monsters_hist'},
+            {'label': 'Histograma de Torres Derrubadas vs. Vitórias', 'value': 'tower_destroyed_hist'},
+        ],
+        value='scatter',
+        style={'color': colors['dropdown']}
+    ),
+    html.Div(id='chart-content', style={'marginTop': '20px'}),  # Usaremos o id para atualização dinâmica
+])
+
+# Função de callback para atualização do conteúdo do gráfico
+@app.callback(
+    Output('chart-content', 'children'),
+    [Input('chart-selector', 'value')]
+)
+def update_chart(selected_chart):
+    if selected_chart == 'scatter':
+        scatter_graph = px.scatter(df, x='blueKills', y='blueTotalGold', title='Relação entre Blue Kills e Blue Total Gold')
+        return dcc.Graph(figure=scatter_graph)
+    elif selected_chart == 'pie':
+        c_count = df['blueWins'].value_counts()
+        fig = go.Figure(data=[go.Pie(labels=['Lose (0)', 'Win (1)'], values=c_count)])
+        fig.update_layout(title='Blue Wins Distribution')
+        return dcc.Graph(figure=fig)
+    elif selected_chart == 'countplot':
+        countplot_fig = px.histogram(df, x='blueFirstBlood', color='blueWins', barmode='group', title='Blue Wins vs Blue First Blood')
+        return dcc.Graph(figure=countplot_fig)
+    elif selected_chart == 'elite_monsters_hist':
+        elite_monsters_hist = px.histogram(df, x='blueEliteMonsters', color='blueWins', title='Histograma de Blue Wins vs Blue Elite Monsters Killed',
+                    labels={'blueWins': 'Blue Wins', 'blueEliteMonsters': 'Blue Elite Monsters Killed'},
+                    category_orders={"blueWins": [0, 1]})
+        elite_monsters_hist.update_layout(barmode='group')
+        return dcc.Graph(figure=elite_monsters_hist)
+    elif selected_chart == 'tower_destroyed_hist':
+        tower_destroyed_hist = px.histogram(df, x='blueTowersDestroyed', color='blueWins', barmode='group',
+                    title='Histograma de Blue Wins vs Blue Towers Destroyed',
+                    labels={'blueWins': 'Blue Wins', 'blueTowersDestroyed': 'Blue Towers Destroyed'},
+                    category_orders={"blueWins": [0, 1]})
+        return dcc.Graph(figure=tower_destroyed_hist)
+
+# EXECUTAR
+if __name__ == '__main__':
+    app.run_server(debug=True)
